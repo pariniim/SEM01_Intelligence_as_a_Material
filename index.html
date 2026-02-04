@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Riddle Object Hunter — LM Studio Vision</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0"></script>
   <style>
     :root {
       --bg: #0f0f12;
@@ -181,6 +182,23 @@
       color: var(--error);
     }
 
+    .debug-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .debug-group h3 {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.25rem;
+    }
+
     .next-capture {
       font-size: 0.8125rem;
       color: var(--muted);
@@ -231,6 +249,23 @@
       font-weight: 500;
       margin: 0 0 0.5rem 0;
       color: var(--muted);
+    }
+
+    .riddle-category {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+      display: none;
+    }
+
+    .category-object {
+      color: #fbbf24;
+    }
+
+    .category-occlusion {
+      color: #8b5cf6;
     }
 
     .riddle-text {
@@ -356,6 +391,55 @@
       }
     }
 
+    .spirit-blob.spirit-wrong {
+      animation: spirit-wrong-pulse 0.6s ease-out;
+      background-color: #ef4444 !important;
+    }
+
+    .spirit-blob.spirit-correct {
+      animation: spirit-correct-swirl 1.2s ease-in-out;
+      background-color: #10b981 !important;
+    }
+
+    @keyframes spirit-wrong-pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+
+      50% {
+        transform: scale(1.1);
+        box-shadow: 0 0 30px 10px rgba(239, 68, 68, 0.6);
+      }
+
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+    @keyframes spirit-correct-swirl {
+      0% {
+        transform: scale(1) rotate(0deg);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+
+      40% {
+        transform: scale(1.2) rotate(160deg);
+        box-shadow: 0 0 40px 15px rgba(16, 185, 129, 0.7);
+      }
+
+      80% {
+        transform: scale(1.1) rotate(340deg);
+        box-shadow: 0 0 20px 5px rgba(16, 185, 129, 0.4);
+      }
+
+      100% {
+        transform: scale(1) rotate(360deg);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
     @keyframes spirit-glow {
 
       0%,
@@ -376,6 +460,7 @@
 
     <div class="main-row">
       <section class="riddle-section">
+        <div class="riddle-category" id="riddleCategory"></div>
         <h2>Your hint</h2>
         <div class="riddle-text" id="riddleText">Start the game to see your first riddle!</div>
         <div class="riddle-feedback waiting" id="riddleFeedback"></div>
@@ -398,16 +483,29 @@
       </section>
 
       <section class="result-section">
-        <h2>What you're holding (qwen3-vl-4b)</h2>
+        <h2>Debug Dashboard</h2>
         <div class="result-display pending" id="resultDisplay">
-          <div class="item" id="penResult">Pen: —</div>
-          <div class="item" id="cupResult">Cup: —</div>
-          <div class="item" id="mouseResult">Mouse: —</div>
-          <div class="item" id="phoneResult">Phone: —</div>
-          <div class="item" id="bottleResult">Bottle: —</div>
-          <div class="item" id="glassesResult">Glasses: —</div>
-          <div class="item" id="watchResult">Watch: —</div>
-          <div class="item" id="headphonesResult">Headphones: —</div>
+          <div class="debug-grid">
+            <div class="debug-group">
+              <h3>Objects (Vision AI)</h3>
+              <div class="item" id="penResult">Pen: —</div>
+              <div class="item" id="travelMugResult">Travel Mug: —</div>
+              <div class="item" id="mouseResult">Mouse: —</div>
+              <div class="item" id="phoneResult">Phone: —</div>
+              <div class="item" id="bottleResult">Bottle: —</div>
+              <div class="item" id="glassesResult">Glasses: —</div>
+              <div class="item" id="watchResult">Watch: —</div>
+              <div class="item" id="headphonesResult">Headphones: —</div>
+            </div>
+            <div class="debug-group">
+              <h3>Webcam Occlusion (Vision AI)</h3>
+              <div class="item" id="topOccludedResult">Top half: —</div>
+              <div class="item" id="bottomOccludedResult">Bottom half: —</div>
+              <div class="item" id="rightOccludedResult">Right half: —</div>
+              <div class="item" id="leftOccludedResult">Left half: —</div>
+              <div class="item" id="fullOccludedResult">Full occlusion: —</div>
+            </div>
+          </div>
         </div>
         <div class="next-capture" id="nextCapture"></div>
       </section>
@@ -427,30 +525,85 @@
     const INTERVAL_MS = 10_000;
 
     const RIDDLES = [
+      // PEN
       { riddle: "I have a point but no edges. I help you write but I'm not a keyboard. What am I?", key: "hasPen" },
-      { riddle: "I flow when you use me, but I'm not a river. I leave marks on paper. What am I?", key: "hasPen" },
-      { riddle: "I am a slender stick of lead or ink, held between your fingers. What am I?", key: "hasPen" },
-      { riddle: "I hold your drink but have no hands. I'm often ceramic or glass. What am I?", key: "hasCup" },
-      { riddle: "Coffee or tea finds a home in me. I have a handle and a rim. What am I?", key: "hasCup" },
-      { riddle: "I am thirsty for your beverage, yet I never swallow. What am I?", key: "hasCup" },
-      { riddle: "I click and scroll but I'm not a rodent. I sit beside your keyboard. What am I?", key: "hasMouse" },
+      { riddle: "I hold your ideas on paper, but I'm not a printer. What am I?", key: "hasPen" },
+      { riddle: "I bleed ink to tell your story. What am I?", key: "hasPen" },
+      { riddle: "I'm mightier than the sword and fits in your pocket. What am I?", key: "hasPen" },
+      { riddle: "I am the scribe's best friend. What am I?", key: "hasPen" },
+      // TRAVEL MUG
+      { riddle: "I have no handle and I'm built for the road. I keep your coffee hot. What am I?", key: "hasTravelMug" },
+      { riddle: "I'm a cylinder of warmth with a lid for a cap, perfect for a commute. What am I?", key: "hasTravelMug" },
+      { riddle: "I hold your liquid fuel but have no ears to hold onto. What am I?", key: "hasTravelMug" },
+      { riddle: "Indestructible and insulated, I am the traveler's companion for tea. What am I?", key: "hasTravelMug" },
+      { riddle: "I am a mug that lost its handle but gained a lid for the journey. What am I?", key: "hasTravelMug" },
+      // MOUSE
+      { riddle: "I have a tail but I'm not an animal. I help you navigate the digital world. What am I?", key: "hasMouse" },
       { riddle: "I have buttons and a cord or wireless connection. I move the cursor on your screen. What am I?", key: "hasMouse" },
       { riddle: "I guide your hand across the digital world, though I never leave your desk. What am I?", key: "hasMouse" },
+      { riddle: "I have an optical eye but I am blind. I glide on a pad. What am I?", key: "hasMouse" },
+      { riddle: "I scavenge for icons and click on links, yet I never eat cheese. What am I?", key: "hasMouse" },
+      // PHONE
       { riddle: "I fit in your palm, I ring and I text. I connect you to the world. What am I?", key: "hasPhone" },
       { riddle: "I have a screen you tap and scroll. You carry me everywhere. What am I?", key: "hasPhone" },
       { riddle: "I am a pocket-sized window to everything, yet I am easily lost. What am I?", key: "hasPhone" },
+      { riddle: "I wake you up in the morning and glow in the dark at night. I am your smart companion. What am I?", key: "hasPhone" },
+      { riddle: "I have no mouth but I speak for you, no ears but I hear the world. What am I?", key: "hasPhone" },
+      // BOTTLE
       { riddle: "I store liquids with a twist-off cap. I keep you hydrated. What am I?", key: "hasBottle" },
       { riddle: "Water, soda, or juice—I hold them all. I'm usually plastic or glass. What am I?", key: "hasBottle" },
       { riddle: "I carry your thirst-quencher, often recycled but rarely empty. What am I?", key: "hasBottle" },
+      { riddle: "I have a neck but no head, and I wear a crown made of plastic or metal. What am I?", key: "hasBottle" },
+      { riddle: "I am a transparent cylinder that gurgles when you tilt me. What am I?", key: "hasBottle" },
+      // GLASSES
       { riddle: "I have two eyes but cannot see, I sit on your nose and help you read. What am I?", key: "hasGlasses" },
       { riddle: "I have frames and lenses, shielding you from the sun or clarifying your view. What am I?", key: "hasGlasses" },
       { riddle: "I am worn on the face to sharpen the world or darken the day. What am I?", key: "hasGlasses" },
+      { riddle: "I bridge your nose and cling to your ears to give you second sight. What am I?", key: "hasGlasses" },
+      { riddle: "I am the windows you wear when the world gets blurry. What am I?", key: "hasGlasses" },
+      // WATCH
       { riddle: "I have hands but no arms, a face but no eyes. I tell you the time from your wrist. What am I?", key: "hasWatch" },
       { riddle: "I tick and I tock, or I glow with digits, strapped securely to your arm. What am I?", key: "hasWatch" },
       { riddle: "I count the seconds and minutes while resting on your skin. What am I?", key: "hasWatch" },
+      { riddle: "I am a steady heartbeat on your pulse, keeping you on schedule. What am I?", key: "hasWatch" },
+      { riddle: "I have twelve numbers and two pointers, but I never do math. What am I?", key: "hasWatch" },
+      // HEADPHONES
       { riddle: "I hug your ears and bring you music, but I don't speak a word. What am I?", key: "hasHeadphones" },
       { riddle: "I have two cups but no coffee, I bridge your head to sound. What am I?", key: "hasHeadphones" },
       { riddle: "I isolate the world and fill your head with rhythm. What am I?", key: "hasHeadphones" },
+      { riddle: "I am the earmuffs that sing to you. What am I?", key: "hasHeadphones" },
+      { riddle: "I have a headband but no hair, and I live for the beat. What am I?", key: "hasHeadphones" },
+      // OCCLUSIONS
+      // TOP
+      { riddle: "Hide the sky of my view with your hand.", key: "isTopOccluded" },
+      { riddle: "Cover the upper ceiling of my visual world.", key: "isTopOccluded" },
+      { riddle: "I see the floor, but the top is gone. Make it so.", key: "isTopOccluded" },
+      { riddle: "Shadow the crown of my vision.", key: "isTopOccluded" },
+      { riddle: "Place an eclipse on the upper half of my eye.", key: "isTopOccluded" },
+      // BOTTOM
+      { riddle: "Cover the floor of my vision.", key: "isBottomOccluded" },
+      { riddle: "Hide the lower half of what I see.", key: "isBottomOccluded" },
+      { riddle: "Block the path where the desk should be.", key: "isBottomOccluded" },
+      { riddle: "Let my view be top-heavy; hide the bottom.", key: "isBottomOccluded" },
+      { riddle: "Place an eclipse on the lower half of my eye.", key: "isBottomOccluded" },
+      // RIGHT
+      { riddle: "Block the right side of the world for me.", key: "isRightOccluded" },
+      { riddle: "Cover my right eye's path.", key: "isRightOccluded" },
+      { riddle: "I want to see only what is on the left.", key: "isRightOccluded" },
+      { riddle: "Shadow the eastern side of my frame.", key: "isRightOccluded" },
+      { riddle: "Make the right side of my vision disappear.", key: "isRightOccluded" },
+      // LEFT
+      { riddle: "Block the left side of the world for me.", key: "isLeftOccluded" },
+      { riddle: "Cover my left eye's path.", key: "isLeftOccluded" },
+      { riddle: "I want to see only what is on the right.", key: "isLeftOccluded" },
+      { riddle: "Shadow the western side of my frame.", key: "isLeftOccluded" },
+      { riddle: "Make the left side of my vision disappear.", key: "isLeftOccluded" },
+      // FULL
+      { riddle: "Plunge me into total darkness.", key: "isFullOccluded" },
+      { riddle: "Blind me completely with your hand.", key: "isFullOccluded" },
+      { riddle: "I want to see nothing at all. Block my lens.", key: "isFullOccluded" },
+      { riddle: "Total eclipse! Cover my entire eye.", key: "isFullOccluded" },
+      { riddle: "Make the screen go black with a full cover.", key: "isFullOccluded" },
     ];
 
     function shuffleArray(array) {
@@ -473,14 +626,20 @@
     const resultDisplay = document.getElementById("resultDisplay");
     const ITEM_RESULTS = [
       { id: "penResult", key: "hasPen", label: "Pen" },
-      { id: "cupResult", key: "hasCup", label: "Cup" },
+      { id: "travelMugResult", key: "hasTravelMug", label: "Travel Mug" },
       { id: "mouseResult", key: "hasMouse", label: "Mouse" },
       { id: "phoneResult", key: "hasPhone", label: "Phone" },
       { id: "bottleResult", key: "hasBottle", label: "Bottle" },
       { id: "glassesResult", key: "hasGlasses", label: "Glasses" },
       { id: "watchResult", key: "hasWatch", label: "Watch" },
       { id: "headphonesResult", key: "hasHeadphones", label: "Headphones" },
+      { id: "topOccludedResult", key: "isTopOccluded", label: "Top half" },
+      { id: "bottomOccludedResult", key: "isBottomOccluded", label: "Bottom half" },
+      { id: "rightOccludedResult", key: "isRightOccluded", label: "Right half" },
+      { id: "leftOccludedResult", key: "isLeftOccluded", label: "Left half" },
+      { id: "fullOccludedResult", key: "isFullOccluded", label: "Full occlusion" },
     ].map((r) => ({ ...r, el: document.getElementById(r.id) }));
+    const riddleCategory = document.getElementById("riddleCategory");
     const nextCapture = document.getElementById("nextCapture");
     const btnStart = document.getElementById("btnStart");
     const btnStop = document.getElementById("btnStop");
@@ -519,27 +678,46 @@
       }
       currentRiddle = sessionRiddles.pop();
       riddleText.textContent = `"${currentRiddle.riddle}"`;
-      riddleFeedback.textContent = "Find and hold the object!";
+
+      const isOcclusion = currentRiddle.key.startsWith("is") && currentRiddle.key.includes("Occluded");
+
+      riddleCategory.style.display = "block";
+      riddleCategory.textContent = isOcclusion ? "Occlude the camera" : "Find the object";
+      riddleCategory.className = `riddle-category ${isOcclusion ? 'category-occlusion' : 'category-object'}`;
+
+      riddleFeedback.textContent = isOcclusion ? "Cover the camera as hinted!" : "Find and hold the object!";
       riddleFeedback.className = "riddle-feedback waiting";
     }
 
     function setRiddleFeedback(correct) {
       riddleFeedback.classList.remove("correct", "wrong", "waiting");
+      spiritBlob.classList.remove("spirit-correct", "spirit-wrong");
+
+      // Trigger reflow to restart animation
+      void spiritBlob.offsetWidth;
+
       if (correct) {
         correctCount = Math.min(3, correctCount + 1);
         updateSpirit();
+        spiritBlob.classList.add("spirit-correct");
         riddleFeedback.classList.add("correct");
         riddleFeedback.textContent = correctCount >= 3 ? "Spirit awakened! 🎉" : "Correct! 🎉";
-        setTimeout(pickNewRiddle, 1500);
+        setTimeout(() => {
+          spiritBlob.classList.remove("spirit-correct");
+          pickNewRiddle();
+        }, 1500);
       } else {
-        correctCount = Math.max(0, correctCount - 1);
-        updateSpirit();
+        // Progress is not lost anymore
+        spiritBlob.classList.add("spirit-wrong");
         riddleFeedback.classList.add("wrong");
         riddleFeedback.textContent = "Not quite—try again!";
         setTimeout(() => {
+          spiritBlob.classList.remove("spirit-wrong");
           riddleFeedback.classList.remove("wrong");
           riddleFeedback.classList.add("waiting");
-          riddleFeedback.textContent = "Find and hold the object!";
+
+          const isOcc = currentRiddle.key.startsWith("is") && currentRiddle.key.includes("Occluded");
+          riddleFeedback.textContent = isOcc ? "Cover the camera as hinted!" : "Find and hold the object!";
         }, 2000);
       }
     }
@@ -563,7 +741,16 @@
       } else {
         ITEM_RESULTS.forEach((r) => {
           const v = value[r.key];
-          r.el.textContent = v ? `${r.label}: holding ✓` : `${r.label}: not holding`;
+          const isOcclusion = r.key.startsWith("is") && r.key.includes("Occluded");
+
+          let statusSuffix;
+          if (v) {
+            statusSuffix = isOcclusion ? "occluded ✓" : "holding ✓";
+          } else {
+            statusSuffix = isOcclusion ? "not occluded" : "not holding";
+          }
+
+          r.el.textContent = `${r.label}: ${statusSuffix}`;
           r.el.classList.add(v ? "yes" : "no");
         });
       }
@@ -588,22 +775,21 @@
       if (!stream || video.readyState < 2) return null;
       const w = video.videoWidth;
       const h = video.videoHeight;
-      if (!w || !h) return null;
+      const ctx = canvas.getContext("2d");
       canvas.width = w;
       canvas.height = h;
       ctx.drawImage(video, 0, 0);
-      try {
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+
+      const snapshotImg = document.getElementById("snapshot");
+      if (snapshotImg) {
         snapshotImg.src = dataUrl;
         snapshotImg.style.opacity = "1";
         setTimeout(() => {
           snapshotImg.style.opacity = "0";
         }, 500);
-        return dataUrl;
-      } catch (e) {
-        console.error("Canvas toDataURL failed", e);
-        return null;
       }
+      return dataUrl;
     }
 
     async function askDetectItems(dataUrl) {
@@ -621,7 +807,7 @@
               {
                 type: "text",
                 text:
-                  "Is the person in this image holding any of these items? Reply with JSON: {\"hasPen\": true/false, \"hasCup\": true/false, \"hasMouse\": true/false, \"hasPhone\": true/false, \"hasBottle\": true/false, \"hasGlasses\": true/false, \"hasWatch\": true/false, \"hasHeadphones\": true/false}. hasPen: pen/pencil/marker. hasCup: cup/mug/glass. hasMouse: computer mouse. hasPhone: cellphone/smartphone. hasBottle: bottle (water, soda, etc.). hasGlasses: glasses/sunglasses/eyewear. hasWatch: wristwatch/smartwatch. hasHeadphones: headphones/earphones/headset.",
+                  "Is the person in this image holding an item or covering part of the camera? Reply with JSON: {\"hasPen\": bool, \"hasTravelMug\": bool, \"hasMouse\": bool, \"hasPhone\": bool, \"hasBottle\": bool, \"hasGlasses\": bool, \"hasWatch\": bool, \"hasHeadphones\": bool, \"isTopOccluded\": bool, \"isBottomOccluded\": bool, \"isRightOccluded\": bool, \"isLeftOccluded\": bool, \"isFullOccluded\": bool}. Items: pen, travel mug (insulated, handle-less, often metallic or plastic with a lid), mouse, phone, bottle, glasses, watch, headphones. Occlusions: isTopOccluded (upper half covered), isBottomOccluded (lower half covered), isRightOccluded (right half covered), isLeftOccluded (left half covered), isFullOccluded (entire lens covered).",
               },
               { type: "image_url", image_url: { url: dataUrl } },
             ],
@@ -636,20 +822,25 @@
               type: "object",
               properties: {
                 hasPen: { type: "boolean" },
-                hasCup: { type: "boolean" },
+                hasTravelMug: { type: "boolean" },
                 hasMouse: { type: "boolean" },
                 hasPhone: { type: "boolean" },
                 hasBottle: { type: "boolean" },
                 hasGlasses: { type: "boolean" },
                 hasWatch: { type: "boolean" },
                 hasHeadphones: { type: "boolean" },
+                isTopOccluded: { type: "boolean" },
+                isBottomOccluded: { type: "boolean" },
+                isRightOccluded: { type: "boolean" },
+                isLeftOccluded: { type: "boolean" },
+                isFullOccluded: { type: "boolean" },
               },
-              required: ["hasPen", "hasCup", "hasMouse", "hasPhone", "hasBottle", "hasGlasses", "hasWatch", "hasHeadphones"],
+              required: ["hasPen", "hasTravelMug", "hasMouse", "hasPhone", "hasBottle", "hasGlasses", "hasWatch", "hasHeadphones", "isTopOccluded", "isBottomOccluded", "isRightOccluded", "isLeftOccluded", "isFullOccluded"],
             },
           },
         },
         temperature: 0,
-        max_tokens: 200,
+        max_tokens: 400,
         stream: false,
       };
 
@@ -671,19 +862,25 @@
       if (content == null) throw new Error("No content in response");
 
       const parsed = JSON.parse(content);
-      for (const r of ITEM_RESULTS) {
-        if (typeof parsed[r.key] !== "boolean")
-          throw new Error(`Invalid response: missing ${r.key} boolean`);
+      const visionKeys = ["hasPen", "hasTravelMug", "hasMouse", "hasPhone", "hasBottle", "hasGlasses", "hasWatch", "hasHeadphones", "isTopOccluded", "isBottomOccluded", "isRightOccluded", "isLeftOccluded", "isFullOccluded"];
+      for (const key of visionKeys) {
+        if (typeof parsed[key] !== "boolean")
+          throw new Error(`Invalid response: missing ${key} boolean`);
       }
       return {
         hasPen: parsed.hasPen,
-        hasCup: parsed.hasCup,
+        hasTravelMug: parsed.hasTravelMug,
         hasMouse: parsed.hasMouse,
         hasPhone: parsed.hasPhone,
         hasBottle: parsed.hasBottle,
         hasGlasses: parsed.hasGlasses,
         hasWatch: parsed.hasWatch,
         hasHeadphones: parsed.hasHeadphones,
+        isTopOccluded: parsed.isTopOccluded,
+        isBottomOccluded: parsed.isBottomOccluded,
+        isRightOccluded: parsed.isRightOccluded,
+        isLeftOccluded: parsed.isLeftOccluded,
+        isFullOccluded: parsed.isFullOccluded,
       };
     }
 
@@ -694,15 +891,18 @@
         scheduleNextLabel();
         return;
       }
+
       setDetectionResult(null);
       nextCapture.textContent = "Analyzing…";
+
       try {
-        const result = await askDetectItems(dataUrl);
-        setDetectionResult(result);
-        if (currentRiddle && result[currentRiddle.key]) {
+        const finalResult = await askDetectItems(dataUrl);
+        setDetectionResult(finalResult);
+
+        if (currentRiddle && finalResult[currentRiddle.key]) {
           setRiddleFeedback(true);
         } else if (currentRiddle) {
-          const anyHeld = ITEM_RESULTS.some((r) => result[r.key]);
+          const anyHeld = ITEM_RESULTS.some((r) => finalResult[r.key]);
           if (anyHeld) setRiddleFeedback(false);
         }
       } catch (e) {
@@ -715,6 +915,7 @@
     function startInterval() {
       if (intervalId) return;
       correctCount = 0;
+      sessionRiddles = []; // Reset session to force reshuffle
       updateSpirit();
       pickNewRiddle();
       runCapture();
@@ -734,6 +935,8 @@
       }
       nextCapture.textContent = "";
       currentRiddle = null;
+      riddleCategory.style.display = "none";
+      riddleCategory.textContent = "";
       correctCount = 0;
       updateSpirit();
       riddleText.textContent = "Start the game to see your first riddle!";
