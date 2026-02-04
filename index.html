@@ -405,6 +405,9 @@
           <div class="item" id="mouseResult">Mouse: —</div>
           <div class="item" id="phoneResult">Phone: —</div>
           <div class="item" id="bottleResult">Bottle: —</div>
+          <div class="item" id="glassesResult">Glasses: —</div>
+          <div class="item" id="watchResult">Watch: —</div>
+          <div class="item" id="headphonesResult">Headphones: —</div>
         </div>
         <div class="next-capture" id="nextCapture"></div>
       </section>
@@ -426,15 +429,39 @@
     const RIDDLES = [
       { riddle: "I have a point but no edges. I help you write but I'm not a keyboard. What am I?", key: "hasPen" },
       { riddle: "I flow when you use me, but I'm not a river. I leave marks on paper. What am I?", key: "hasPen" },
+      { riddle: "I am a slender stick of lead or ink, held between your fingers. What am I?", key: "hasPen" },
       { riddle: "I hold your drink but have no hands. I'm often ceramic or glass. What am I?", key: "hasCup" },
       { riddle: "Coffee or tea finds a home in me. I have a handle and a rim. What am I?", key: "hasCup" },
+      { riddle: "I am thirsty for your beverage, yet I never swallow. What am I?", key: "hasCup" },
       { riddle: "I click and scroll but I'm not a rodent. I sit beside your keyboard. What am I?", key: "hasMouse" },
       { riddle: "I have buttons and a cord or wireless connection. I move the cursor on your screen. What am I?", key: "hasMouse" },
+      { riddle: "I guide your hand across the digital world, though I never leave your desk. What am I?", key: "hasMouse" },
       { riddle: "I fit in your palm, I ring and I text. I connect you to the world. What am I?", key: "hasPhone" },
       { riddle: "I have a screen you tap and scroll. You carry me everywhere. What am I?", key: "hasPhone" },
+      { riddle: "I am a pocket-sized window to everything, yet I am easily lost. What am I?", key: "hasPhone" },
       { riddle: "I store liquids with a twist-off cap. I keep you hydrated. What am I?", key: "hasBottle" },
       { riddle: "Water, soda, or juice—I hold them all. I'm usually plastic or glass. What am I?", key: "hasBottle" },
+      { riddle: "I carry your thirst-quencher, often recycled but rarely empty. What am I?", key: "hasBottle" },
+      { riddle: "I have two eyes but cannot see, I sit on your nose and help you read. What am I?", key: "hasGlasses" },
+      { riddle: "I have frames and lenses, shielding you from the sun or clarifying your view. What am I?", key: "hasGlasses" },
+      { riddle: "I am worn on the face to sharpen the world or darken the day. What am I?", key: "hasGlasses" },
+      { riddle: "I have hands but no arms, a face but no eyes. I tell you the time from your wrist. What am I?", key: "hasWatch" },
+      { riddle: "I tick and I tock, or I glow with digits, strapped securely to your arm. What am I?", key: "hasWatch" },
+      { riddle: "I count the seconds and minutes while resting on your skin. What am I?", key: "hasWatch" },
+      { riddle: "I hug your ears and bring you music, but I don't speak a word. What am I?", key: "hasHeadphones" },
+      { riddle: "I have two cups but no coffee, I bridge your head to sound. What am I?", key: "hasHeadphones" },
+      { riddle: "I isolate the world and fill your head with rhythm. What am I?", key: "hasHeadphones" },
     ];
+
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    let sessionRiddles = [];
 
     const video = document.getElementById("video");
     const snapshotImg = document.getElementById("snapshot");
@@ -450,6 +477,9 @@
       { id: "mouseResult", key: "hasMouse", label: "Mouse" },
       { id: "phoneResult", key: "hasPhone", label: "Phone" },
       { id: "bottleResult", key: "hasBottle", label: "Bottle" },
+      { id: "glassesResult", key: "hasGlasses", label: "Glasses" },
+      { id: "watchResult", key: "hasWatch", label: "Watch" },
+      { id: "headphonesResult", key: "hasHeadphones", label: "Headphones" },
     ].map((r) => ({ ...r, el: document.getElementById(r.id) }));
     const nextCapture = document.getElementById("nextCapture");
     const btnStart = document.getElementById("btnStart");
@@ -484,7 +514,10 @@
     }
 
     function pickNewRiddle() {
-      currentRiddle = RIDDLES[Math.floor(Math.random() * RIDDLES.length)];
+      if (sessionRiddles.length === 0) {
+        sessionRiddles = shuffleArray([...RIDDLES]);
+      }
+      currentRiddle = sessionRiddles.pop();
       riddleText.textContent = `"${currentRiddle.riddle}"`;
       riddleFeedback.textContent = "Find and hold the object!";
       riddleFeedback.className = "riddle-feedback waiting";
@@ -588,7 +621,7 @@
               {
                 type: "text",
                 text:
-                  "Is the person in this image holding any of these items? Reply with JSON: {\"hasPen\": true/false, \"hasCup\": true/false, \"hasMouse\": true/false, \"hasPhone\": true/false, \"hasBottle\": true/false}. hasPen: pen/pencil/marker. hasCup: cup/mug/glass. hasMouse: computer mouse. hasPhone: cellphone/smartphone. hasBottle: bottle (water, soda, etc.).",
+                  "Is the person in this image holding any of these items? Reply with JSON: {\"hasPen\": true/false, \"hasCup\": true/false, \"hasMouse\": true/false, \"hasPhone\": true/false, \"hasBottle\": true/false, \"hasGlasses\": true/false, \"hasWatch\": true/false, \"hasHeadphones\": true/false}. hasPen: pen/pencil/marker. hasCup: cup/mug/glass. hasMouse: computer mouse. hasPhone: cellphone/smartphone. hasBottle: bottle (water, soda, etc.). hasGlasses: glasses/sunglasses/eyewear. hasWatch: wristwatch/smartwatch. hasHeadphones: headphones/earphones/headset.",
               },
               { type: "image_url", image_url: { url: dataUrl } },
             ],
@@ -607,13 +640,16 @@
                 hasMouse: { type: "boolean" },
                 hasPhone: { type: "boolean" },
                 hasBottle: { type: "boolean" },
+                hasGlasses: { type: "boolean" },
+                hasWatch: { type: "boolean" },
+                hasHeadphones: { type: "boolean" },
               },
-              required: ["hasPen", "hasCup", "hasMouse", "hasPhone", "hasBottle"],
+              required: ["hasPen", "hasCup", "hasMouse", "hasPhone", "hasBottle", "hasGlasses", "hasWatch", "hasHeadphones"],
             },
           },
         },
         temperature: 0,
-        max_tokens: 50,
+        max_tokens: 200,
         stream: false,
       };
 
@@ -645,6 +681,9 @@
         hasMouse: parsed.hasMouse,
         hasPhone: parsed.hasPhone,
         hasBottle: parsed.hasBottle,
+        hasGlasses: parsed.hasGlasses,
+        hasWatch: parsed.hasWatch,
+        hasHeadphones: parsed.hasHeadphones,
       };
     }
 
