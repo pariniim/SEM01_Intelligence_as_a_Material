@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Riddle Object Hunter — LM Studio Vision</title>
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #18181c;
+      --border: #2a2a30;
+      --text: #e4e4e7;
+      --muted: #71717a;
+      --accent: #4f46e5;
+      --success: #16a34a;
+      --error: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 1rem 0;
+      color: var(--accent);
+    }
+
+    .layout {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .main-row {
+      display: flex;
+      gap: 1.5rem;
+      align-items: stretch;
+    }
+
+    .main-row .riddle-section {
+      flex: 0 0 280px;
+    }
+
+    .main-row .camera-section {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .main-row .result-section {
+      flex: 0 0 220px;
+    }
+
+    @media (max-width: 900px) {
+      .main-row {
+        flex-direction: column;
+      }
+
+      .main-row .riddle-section {
+        flex: none;
+      }
+    }
+
+    .camera-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .camera-section h2 {
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin: 0;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .video-wrap {
+      position: relative;
+      aspect-ratio: 4/3;
+      max-height: 360px;
+      background: #000;
+    }
+
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #snapshot {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .status {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8125rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .status-dot.live {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .status-dot.error {
+      background: var(--error);
+    }
+
+    .result-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+    }
+
+    .result-section h2 {
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin: 0 0 0.5rem 0;
+      color: var(--muted);
+    }
+
+    .result-display {
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .result-display .item {
+      margin-bottom: 0.25rem;
+    }
+
+    .result-display .item.yes {
+      color: var(--success);
+    }
+
+    .result-display .item.no {
+      color: var(--muted);
+    }
+
+    .result-display.pending .item {
+      color: var(--muted);
+    }
+
+    .result-display.error {
+      color: var(--error);
+    }
+
+    .next-capture {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    button:hover {
+      background: var(--border);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #canvas {
+      display: none;
+    }
+
+    .riddle-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+    }
+
+    .riddle-section h2 {
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin: 0 0 0.5rem 0;
+      color: var(--muted);
+    }
+
+    .riddle-text {
+      font-size: 1.125rem;
+      font-style: italic;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .riddle-feedback {
+      font-size: 1rem;
+      font-weight: 600;
+      min-height: 1.5em;
+    }
+
+    .riddle-feedback.correct {
+      color: var(--success);
+    }
+
+    .riddle-feedback.wrong {
+      color: var(--muted);
+    }
+
+    .riddle-feedback.waiting {
+      color: var(--muted);
+      font-weight: 400;
+      font-style: italic;
+    }
+
+    .spirit-section {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 2rem 1rem;
+      min-height: 140px;
+    }
+
+    .spirit-progress {
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    .spirit-blob {
+      width: 120px;
+      height: 120px;
+      border-radius: 45% 55% 60% 40% / 55% 45% 55% 45%;
+      background-color: #6b7280;
+      transition: background-color 0.6s ease, box-shadow 0.6s ease, transform 0.4s ease;
+      animation: blob-morph 8s ease-in-out infinite;
+    }
+
+    .spirit-blob.fully-awakened {
+      animation: blob-enthusiastic 3s ease-in-out infinite, spirit-glow 1.5s ease-in-out infinite;
+    }
+
+    @keyframes blob-morph {
+
+      0%,
+      100% {
+        border-radius: 45% 55% 60% 40% / 55% 45% 55% 45%;
+        transform: scale(1);
+      }
+
+      25% {
+        border-radius: 55% 45% 50% 50% / 45% 55% 45% 55%;
+        transform: scale(1.02);
+      }
+
+      50% {
+        border-radius: 50% 50% 45% 55% / 55% 50% 50% 45%;
+        transform: scale(0.98);
+      }
+
+      75% {
+        border-radius: 45% 55% 55% 45% / 50% 50% 55% 45%;
+        transform: scale(1.01);
+      }
+    }
+
+    @keyframes blob-enthusiastic {
+
+      0%,
+      100% {
+        border-radius: 40% 60% 65% 35% / 60% 40% 60% 40%;
+        transform: scale(1) translateY(0);
+      }
+
+      12.5% {
+        border-radius: 65% 35% 40% 60% / 35% 65% 35% 65%;
+        transform: scale(1.08) translateY(-6px);
+      }
+
+      25% {
+        border-radius: 55% 45% 60% 40% / 50% 55% 45% 55%;
+        transform: scale(0.95) translateY(2px);
+      }
+
+      37.5% {
+        border-radius: 35% 65% 55% 45% / 65% 40% 60% 35%;
+        transform: scale(1.06) translateY(-4px);
+      }
+
+      50% {
+        border-radius: 60% 40% 35% 65% / 45% 60% 40% 55%;
+        transform: scale(0.97) translateY(1px);
+      }
+
+      62.5% {
+        border-radius: 45% 55% 65% 35% / 55% 45% 55% 45%;
+        transform: scale(1.07) translateY(-5px);
+      }
+
+      75% {
+        border-radius: 50% 50% 45% 55% / 60% 50% 50% 40%;
+        transform: scale(0.96) translateY(3px);
+      }
+
+      87.5% {
+        border-radius: 55% 45% 50% 50% / 40% 60% 40% 60%;
+        transform: scale(1.05) translateY(-3px);
+      }
+    }
+
+    @keyframes spirit-glow {
+
+      0%,
+      100% {
+        filter: brightness(1);
+      }
+
+      50% {
+        filter: brightness(1.4);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <h1>Riddle Object Hunter</h1>
+
+    <div class="main-row">
+      <section class="riddle-section">
+        <h2>Your hint</h2>
+        <div class="riddle-text" id="riddleText">Start the game to see your first riddle!</div>
+        <div class="riddle-feedback waiting" id="riddleFeedback"></div>
+        <div class="controls" style="margin-top: 1rem">
+          <button type="button" id="btnStart">Start</button>
+          <button type="button" id="btnStop" disabled>Stop</button>
+        </div>
+      </section>
+
+      <section class="camera-section">
+        <h2>Camera</h2>
+        <div class="video-wrap">
+          <video id="video" autoplay playsinline muted></video>
+          <img id="snapshot" alt="Last snapshot" />
+        </div>
+        <div class="status" id="status">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Starting camera…</span>
+        </div>
+      </section>
+
+      <section class="result-section">
+        <h2>What you're holding (qwen3-vl-4b)</h2>
+        <div class="result-display pending" id="resultDisplay">
+          <div class="item" id="penResult">Pen: —</div>
+          <div class="item" id="cupResult">Cup: —</div>
+          <div class="item" id="mouseResult">Mouse: —</div>
+          <div class="item" id="phoneResult">Phone: —</div>
+          <div class="item" id="bottleResult">Bottle: —</div>
+        </div>
+        <div class="next-capture" id="nextCapture"></div>
+      </section>
+    </div>
+
+    <section class="spirit-section">
+      <div class="spirit-blob" id="spiritBlob"></div>
+      <div class="spirit-progress" id="spiritProgress">0/3 objects</div>
+    </section>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const LM_STUDIO_BASE = "http://localhost:1234";
+    const MODEL = "qwen3-vl-4b";
+    const INTERVAL_MS = 10_000;
+
+    const RIDDLES = [
+      { riddle: "I have a point but no edges. I help you write but I'm not a keyboard. What am I?", key: "hasPen" },
+      { riddle: "I flow when you use me, but I'm not a river. I leave marks on paper. What am I?", key: "hasPen" },
+      { riddle: "I hold your drink but have no hands. I'm often ceramic or glass. What am I?", key: "hasCup" },
+      { riddle: "Coffee or tea finds a home in me. I have a handle and a rim. What am I?", key: "hasCup" },
+      { riddle: "I click and scroll but I'm not a rodent. I sit beside your keyboard. What am I?", key: "hasMouse" },
+      { riddle: "I have buttons and a cord or wireless connection. I move the cursor on your screen. What am I?", key: "hasMouse" },
+      { riddle: "I fit in your palm, I ring and I text. I connect you to the world. What am I?", key: "hasPhone" },
+      { riddle: "I have a screen you tap and scroll. You carry me everywhere. What am I?", key: "hasPhone" },
+      { riddle: "I store liquids with a twist-off cap. I keep you hydrated. What am I?", key: "hasBottle" },
+      { riddle: "Water, soda, or juice—I hold them all. I'm usually plastic or glass. What am I?", key: "hasBottle" },
+    ];
+
+    const video = document.getElementById("video");
+    const snapshotImg = document.getElementById("snapshot");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const statusEl = document.getElementById("status");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const resultDisplay = document.getElementById("resultDisplay");
+    const ITEM_RESULTS = [
+      { id: "penResult", key: "hasPen", label: "Pen" },
+      { id: "cupResult", key: "hasCup", label: "Cup" },
+      { id: "mouseResult", key: "hasMouse", label: "Mouse" },
+      { id: "phoneResult", key: "hasPhone", label: "Phone" },
+      { id: "bottleResult", key: "hasBottle", label: "Bottle" },
+    ].map((r) => ({ ...r, el: document.getElementById(r.id) }));
+    const nextCapture = document.getElementById("nextCapture");
+    const btnStart = document.getElementById("btnStart");
+    const btnStop = document.getElementById("btnStop");
+    const riddleText = document.getElementById("riddleText");
+    const riddleFeedback = document.getElementById("riddleFeedback");
+    const spiritBlob = document.getElementById("spiritBlob");
+    const spiritProgress = document.getElementById("spiritProgress");
+
+    const SPIRIT_COLORS = [
+      "#6b7280",
+      "#4a8a94",
+      "#22b8c9",
+      "#22d3ee",
+    ];
+
+    let stream = null;
+    let intervalId = null;
+    let nextCaptureAt = null;
+    let nextCaptureTimerId = null;
+    let currentRiddle = null;
+    let correctCount = 0;
+
+    function updateSpirit() {
+      const step = Math.min(correctCount, 3);
+      spiritBlob.style.backgroundColor = SPIRIT_COLORS[step];
+      spiritBlob.style.boxShadow = step === 3
+        ? `0 0 40px ${SPIRIT_COLORS[3]}, 0 0 80px ${SPIRIT_COLORS[3]}80`
+        : "none";
+      spiritBlob.classList.toggle("fully-awakened", step === 3);
+      spiritProgress.textContent = step === 3 ? "Spirit awakened!" : `${step}/3 objects`;
+    }
+
+    function pickNewRiddle() {
+      currentRiddle = RIDDLES[Math.floor(Math.random() * RIDDLES.length)];
+      riddleText.textContent = `"${currentRiddle.riddle}"`;
+      riddleFeedback.textContent = "Find and hold the object!";
+      riddleFeedback.className = "riddle-feedback waiting";
+    }
+
+    function setRiddleFeedback(correct) {
+      riddleFeedback.classList.remove("correct", "wrong", "waiting");
+      if (correct) {
+        correctCount = Math.min(3, correctCount + 1);
+        updateSpirit();
+        riddleFeedback.classList.add("correct");
+        riddleFeedback.textContent = correctCount >= 3 ? "Spirit awakened! 🎉" : "Correct! 🎉";
+        setTimeout(pickNewRiddle, 1500);
+      } else {
+        correctCount = Math.max(0, correctCount - 1);
+        updateSpirit();
+        riddleFeedback.classList.add("wrong");
+        riddleFeedback.textContent = "Not quite—try again!";
+        setTimeout(() => {
+          riddleFeedback.classList.remove("wrong");
+          riddleFeedback.classList.add("waiting");
+          riddleFeedback.textContent = "Find and hold the object!";
+        }, 2000);
+      }
+    }
+
+    function setStatus(ok, text) {
+      statusDot.classList.remove("live", "error");
+      statusDot.classList.add(ok ? "live" : "error");
+      statusText.textContent = text;
+    }
+
+    function setDetectionResult(value, isError = false) {
+      resultDisplay.classList.remove("pending", "error");
+      ITEM_RESULTS.forEach((r) => r.el.classList.remove("yes", "no"));
+      if (isError) {
+        resultDisplay.classList.add("error");
+        ITEM_RESULTS[0].el.textContent = value;
+        ITEM_RESULTS.slice(1).forEach((r) => (r.el.textContent = ""));
+      } else if (value == null) {
+        resultDisplay.classList.add("pending");
+        ITEM_RESULTS.forEach((r) => (r.el.textContent = `${r.label}: —`));
+      } else {
+        ITEM_RESULTS.forEach((r) => {
+          const v = value[r.key];
+          r.el.textContent = v ? `${r.label}: holding ✓` : `${r.label}: not holding`;
+          r.el.classList.add(v ? "yes" : "no");
+        });
+      }
+    }
+
+    function scheduleNextLabel() {
+      if (nextCaptureTimerId) clearTimeout(nextCaptureTimerId);
+      nextCaptureAt = Date.now() + INTERVAL_MS;
+      const update = () => {
+        const left = Math.max(
+          0,
+          Math.ceil((nextCaptureAt - Date.now()) / 1000)
+        );
+        nextCapture.textContent =
+          left > 0 ? `Next snapshot in ${left}s` : "Capturing…";
+        if (left > 0) nextCaptureTimerId = setTimeout(update, 500);
+      };
+      update();
+    }
+
+    function captureFrame() {
+      if (!stream || video.readyState < 2) return null;
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      if (!w || !h) return null;
+      canvas.width = w;
+      canvas.height = h;
+      ctx.drawImage(video, 0, 0);
+      try {
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        snapshotImg.src = dataUrl;
+        snapshotImg.style.opacity = "1";
+        setTimeout(() => {
+          snapshotImg.style.opacity = "0";
+        }, 500);
+        return dataUrl;
+      } catch (e) {
+        console.error("Canvas toDataURL failed", e);
+        return null;
+      }
+    }
+
+    async function askDetectItems(dataUrl) {
+      const body = {
+        model: MODEL,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a vision assistant. Look at the image and answer only with the requested JSON. No other text.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  "Is the person in this image holding any of these items? Reply with JSON: {\"hasPen\": true/false, \"hasCup\": true/false, \"hasMouse\": true/false, \"hasPhone\": true/false, \"hasBottle\": true/false}. hasPen: pen/pencil/marker. hasCup: cup/mug/glass. hasMouse: computer mouse. hasPhone: cellphone/smartphone. hasBottle: bottle (water, soda, etc.).",
+              },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "item_response",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                hasPen: { type: "boolean" },
+                hasCup: { type: "boolean" },
+                hasMouse: { type: "boolean" },
+                hasPhone: { type: "boolean" },
+                hasBottle: { type: "boolean" },
+              },
+              required: ["hasPen", "hasCup", "hasMouse", "hasPhone", "hasBottle"],
+            },
+          },
+        },
+        temperature: 0,
+        max_tokens: 50,
+        stream: false,
+      };
+
+      const res = await fetch(`${LM_STUDIO_BASE}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(
+          `LM Studio ${res.status}: ${errText || res.statusText}`
+        );
+      }
+
+      const data = await res.json();
+      const content = data?.choices?.[0]?.message?.content;
+      if (content == null) throw new Error("No content in response");
+
+      const parsed = JSON.parse(content);
+      for (const r of ITEM_RESULTS) {
+        if (typeof parsed[r.key] !== "boolean")
+          throw new Error(`Invalid response: missing ${r.key} boolean`);
+      }
+      return {
+        hasPen: parsed.hasPen,
+        hasCup: parsed.hasCup,
+        hasMouse: parsed.hasMouse,
+        hasPhone: parsed.hasPhone,
+        hasBottle: parsed.hasBottle,
+      };
+    }
+
+    async function runCapture() {
+      const dataUrl = captureFrame();
+      if (!dataUrl) {
+        setDetectionResult("No frame", true);
+        scheduleNextLabel();
+        return;
+      }
+      setDetectionResult(null);
+      nextCapture.textContent = "Analyzing…";
+      try {
+        const result = await askDetectItems(dataUrl);
+        setDetectionResult(result);
+        if (currentRiddle && result[currentRiddle.key]) {
+          setRiddleFeedback(true);
+        } else if (currentRiddle) {
+          const anyHeld = ITEM_RESULTS.some((r) => result[r.key]);
+          if (anyHeld) setRiddleFeedback(false);
+        }
+      } catch (e) {
+        console.error(e);
+        setDetectionResult(e.message || "Request failed", true);
+      }
+      scheduleNextLabel();
+    }
+
+    function startInterval() {
+      if (intervalId) return;
+      correctCount = 0;
+      updateSpirit();
+      pickNewRiddle();
+      runCapture();
+      intervalId = setInterval(runCapture, INTERVAL_MS);
+      btnStart.disabled = true;
+      btnStop.disabled = false;
+    }
+
+    function stopInterval() {
+      if (nextCaptureTimerId) {
+        clearTimeout(nextCaptureTimerId);
+        nextCaptureTimerId = null;
+      }
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+      nextCapture.textContent = "";
+      currentRiddle = null;
+      correctCount = 0;
+      updateSpirit();
+      riddleText.textContent = "Start the game to see your first riddle!";
+      riddleFeedback.textContent = "";
+      riddleFeedback.className = "riddle-feedback waiting";
+      btnStart.disabled = false;
+      btnStop.disabled = true;
+    }
+
+    async function initCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        });
+        video.srcObject = stream;
+        await new Promise((resolve, reject) => {
+          video.onloadedmetadata = resolve;
+          video.onerror = () => reject(new Error("Video load failed"));
+        });
+        setStatus(true, "Camera live");
+        btnStart.disabled = false;
+      } catch (e) {
+        setStatus(false, "Camera error: " + (e.message || "denied"));
+        setDetectionResult("Camera failed", true);
+      }
+    }
+
+    btnStart.addEventListener("click", startInterval);
+    btnStop.addEventListener("click", stopInterval);
+
+    initCamera();
+  </script>
+</body>
+
+</html>
