@@ -13,6 +13,12 @@
       inherits: true;
     }
 
+    @property --spirit-heart {
+      syntax: '<color>';
+      initial-value: #fce4ec;
+      inherits: true;
+    }
+
     :root {
       --bg: #0f0f12;
       --surface: #18181c;
@@ -236,9 +242,51 @@
     }
 
     .next-capture {
-      font-size: 0.8125rem;
-      color: var(--muted);
-      margin-top: 0.5rem;
+      position: fixed;
+      bottom: 2rem;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #ffffff;
+      z-index: 10001;
+      /* Above flash-overlay */
+      pointer-events: none;
+      text-shadow: 0 0 20px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 0, 0, 0.6);
+      transition: color 0.4s ease, transform 0.4s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .next-capture.capturing {
+      color: #fff;
+    }
+
+    .flash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .flash-active {
+      animation: flash-anim 0.4s ease-out;
+    }
+
+    @keyframes flash-anim {
+      0% {
+        opacity: 0.8;
+      }
+
+      100% {
+        opacity: 0;
+      }
     }
 
     .controls {
@@ -357,6 +405,25 @@
       min-height: 140px;
     }
 
+    .spirit-message {
+      margin-top: 0.75rem;
+      text-align: center;
+      color: #fff7d6; /* pastel yellow text color */
+      font-size: 1.25rem; /* larger base size */
+      font-style: italic;
+      min-height: 1.6em;
+      transition: color 0.25s ease, transform 0.25s ease, text-shadow 0.25s ease;
+      pointer-events: none;
+      text-shadow: 0 0 12px rgba(255,241,179,0.85), 0 6px 18px rgba(0,0,0,0.45);
+    }
+    .spirit-message.angry {
+      color: #ff4d6f;
+      font-weight: 800;
+      font-size: 1.4rem;
+      transform: translateY(-2px);
+      text-shadow: 0 0 14px rgba(215,0,64,0.95), 0 8px 24px rgba(0,0,0,0.45);
+    }
+
     .spirit-progress {
       font-size: 1.25rem;
       font-weight: 500;
@@ -379,8 +446,8 @@
     .spirit-blob {
       width: 300px;
       height: 300px;
-      background: radial-gradient(circle at center, #fce4ec 0%, var(--spirit-color) 70%);
-      transition: --spirit-color 0.6s ease, box-shadow 0.6s ease, transform 0.4s ease;
+      background: radial-gradient(circle at center, var(--spirit-heart) 0%, var(--spirit-color) 70%);
+      transition: --spirit-color 0.6s ease, --spirit-heart 0.6s ease, box-shadow 0.6s ease, transform 0.4s ease;
       animation: blob-random-morph 12s ease-in-out infinite alternate;
       position: relative;
       /* Soft edges and organic glow */
@@ -438,8 +505,13 @@
     }
 
     .spirit-blob.spirit-wrong {
-      animation: spirit-wrong-pulse 0.4s ease-out;
-      background-color: #ef4444 !important;
+      /* Fully red (user-specified) while keeping feathered gradient edges via blur and glow */
+      animation: spirit-wrong-pulse 0.7s cubic-bezier(.2,.8,.2,1) 1;
+      --spirit-color: #D70040;
+      /* lighter heart to keep a bright center while overall red */
+      --spirit-heart: #ff6a8a;
+      box-shadow: 0 0 80px 32px rgba(215,0,64,0.95);
+      filter: blur(14px) brightness(1.35) contrast(1.05) saturate(1.45);
     }
 
     .spirit-blob.spirit-correct {
@@ -449,17 +521,27 @@
 
     @keyframes spirit-wrong-pulse {
       0% {
-        transform: scale(1);
+        transform: translateX(0) scale(1);
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
       }
 
+      20% {
+        transform: translateX(-6px) scale(1.06) rotate(-1deg);
+        box-shadow: 0 0 40px 12px rgba(239, 68, 68, 0.6);
+      }
+
       50% {
-        transform: scale(1.1);
-        box-shadow: 0 0 60px 20px rgba(239, 68, 68, 0.6);
+        transform: translateX(6px) scale(1.08) rotate(1deg);
+        box-shadow: 0 0 60px 20px rgba(239, 68, 68, 0.7);
+      }
+
+      80% {
+        transform: translateX(-4px) scale(1.03) rotate(-0.5deg);
+        box-shadow: 0 0 30px 8px rgba(239, 68, 68, 0.5);
       }
 
       100% {
-        transform: scale(1);
+        transform: translateX(0) scale(1);
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
       }
     }
@@ -522,6 +604,7 @@
           <div class="controls" style="margin-top: 1.5rem">
             <button type="button" id="btnStart">Start</button>
             <button type="button" id="btnStop" disabled>Stop</button>
+            <button type="button" id="btnSnapshot" disabled>Take Snapshot</button>
           </div>
         </div>
       </section>
@@ -530,6 +613,7 @@
         <div class="spirit-rotate-wrapper">
           <div class="spirit-blob" id="spiritBlob"></div>
         </div>
+        <div id="spiritMessage" class="spirit-message"></div>
         <div class="spirit-progress" id="spiritProgress">0/3 objects</div>
       </section>
 
@@ -558,18 +642,19 @@
               <div class="item" id="headphonesResult">Headphones: —</div>
             </div>
           </div>
-        </div>
-        <div class="next-capture" id="nextCapture"></div>
       </section>
     </div>
   </div>
+
+  <div class="next-capture" id="nextCapture"></div>
+  <div class="flash-overlay" id="flashOverlay"></div>
 
   <canvas id="canvas"></canvas>
 
   <script>
     const LM_STUDIO_BASE = "http://localhost:1234";
     const MODEL = "qwen3-vl-4b";
-    const INTERVAL_MS = 10_000;
+    let currentIntervalMs = 10_000;
 
     const RIDDLES = [
       // PEN
@@ -653,6 +738,7 @@
     ].map((r) => ({ ...r, el: document.getElementById(r.id) }));
     const riddleCategory = document.getElementById("riddleCategory");
     const nextCapture = document.getElementById("nextCapture");
+    const flashOverlay = document.getElementById("flashOverlay");
     const btnStart = document.getElementById("btnStart");
     const btnStop = document.getElementById("btnStop");
     const riddleText = document.getElementById("riddleText");
@@ -667,6 +753,13 @@
       "#22d3ee",
     ];
 
+    const HEART_COLORS = [
+      "#fce4ec", // Pastel (0)
+      "#fce4ec", // Still Pastel (1st object presented) -> becomes intense AFTER identified
+      "#f06292", // Intense (After 1st)
+      "#e91e63", // Even More Intense (After 2nd)
+    ];
+
     let stream = null;
     let intervalId = null;
     let nextCaptureAt = null;
@@ -676,7 +769,12 @@
 
     function updateSpirit() {
       const step = Math.min(correctCount, 3);
+
+      // Dynamic capture delay: increase by 6s if at least one object found
+      currentIntervalMs = (step >= 1) ? 16_000 : 10_000;
+
       spiritBlob.style.setProperty('--spirit-color', SPIRIT_COLORS[step]);
+      spiritBlob.style.setProperty('--spirit-heart', HEART_COLORS[step]);
       spiritBlob.style.boxShadow = step === 3
         ? `0 0 40px ${SPIRIT_COLORS[3]}, 0 0 80px ${SPIRIT_COLORS[3]}80`
         : "none";
@@ -718,7 +816,7 @@
       void spiritBlob.offsetWidth;
 
       if (correct) {
-        usedKeys.push(currentRiddle.key);
+        if (!usedKeys.includes(currentRiddle.key)) usedKeys.push(currentRiddle.key);
         correctCount = Math.min(3, correctCount + 1);
         updateSpirit();
         spiritBlob.classList.add("spirit-correct");
@@ -727,20 +825,35 @@
         if (correctCount >= 3) {
           gameUI.style.display = "none";
           winMessage.style.display = "flex";
-          // Stop the game loop
-          if (nextCaptureTimerId) clearTimeout(nextCaptureTimerId);
-          if (intervalId) {
-            clearInterval(intervalId);
-            intervalId = null;
+          if (nextCaptureTimerId) {
+            clearTimeout(nextCaptureTimerId);
+            nextCaptureTimerId = null;
           }
-          nextCapture.textContent = "Game Over - You Won!";
+          intervalId = null;
+
+              nextCapture.classList.remove("capturing");
+              nextCapture.textContent = "CONGRATULATIONS — THE SPIRIT IS AWAKE!";
+              // Also show a final spirit message
+              const spiritMessageEl = document.getElementById("spiritMessage");
+              if (spiritMessageEl) spiritMessageEl.textContent = "The spirit gratefully accepts your offering";
           btnStart.disabled = false;
           btnStop.disabled = true;
         } else {
+          // Show success, immediately pick a new random riddle, and delay next capture
           riddleFeedback.textContent = "Correct! 🎉";
+          // Show grateful message briefly and choose a new riddle
+          const spiritMessageEl = document.getElementById("spiritMessage");
+          if (spiritMessageEl) spiritMessageEl.textContent = "The spirit gratefully accepts your offering";
+          pickNewRiddle();
+          if (nextCaptureTimerId) {
+            clearTimeout(nextCaptureTimerId);
+            nextCaptureTimerId = null;
+          }
+          nextCapture.textContent = "";
+          btnSnapshot.disabled = false;
           setTimeout(() => {
             spiritBlob.classList.remove("spirit-correct");
-            pickNewRiddle();
+            if (intervalId && spiritMessageEl) spiritMessageEl.textContent = "The spirit peers at your object…";
           }, 1500);
         }
       } else {
@@ -748,14 +861,28 @@
         spiritBlob.classList.add("spirit-wrong");
         riddleFeedback.classList.add("wrong");
         riddleFeedback.textContent = "Not quite—try again!";
+        // Show the spirit's doubt message while evaluating the wrong object
+        const spiritMessageElWrong = document.getElementById("spiritMessage");
+        if (spiritMessageElWrong) {
+          spiritMessageElWrong.textContent = "The spirit's glow reddens and shivers with doubt";
+          spiritMessageElWrong.classList.add("angry");
+        }
         setTimeout(() => {
           spiritBlob.classList.remove("spirit-wrong");
+          // After the wrong animation completes, restore the spirit's color based on progress
+          updateSpirit();
           riddleFeedback.classList.remove("wrong");
           riddleFeedback.classList.add("waiting");
-
           const isOcc = currentRiddle.key.startsWith("is") && currentRiddle.key.includes("Occluded");
           riddleFeedback.textContent = isOcc ? "Cover the camera as hinted!" : "Find and hold the object!";
-        }, 2000);
+          // Restore the default spirit message and allow next snapshot
+          if (spiritMessageElWrong) {
+            if (intervalId) spiritMessageElWrong.textContent = "The spirit peers at your object…";
+            spiritMessageElWrong.classList.remove("angry");
+          }
+          nextCapture.textContent = "";
+          btnSnapshot.disabled = false;
+        }, 3200);
       }
     }
 
@@ -793,19 +920,25 @@
       }
     }
 
-    function scheduleNextLabel() {
+    function scheduleManualSnapshot() {
+      if (!intervalId) return;
       if (nextCaptureTimerId) clearTimeout(nextCaptureTimerId);
-      nextCaptureAt = Date.now() + INTERVAL_MS;
-      const update = () => {
-        const left = Math.max(
-          0,
-          Math.ceil((nextCaptureAt - Date.now()) / 1000)
-        );
-        nextCapture.textContent =
-          left > 0 ? `Next snapshot in ${left}s` : "Capturing…";
-        if (left > 0) nextCaptureTimerId = setTimeout(update, 500);
+      
+      nextCapture.textContent = "Snapshot will be taken in 5 seconds...";
+      nextCapture.classList.remove("capturing");
+      btnSnapshot.disabled = true;
+      
+      let countdown = 5;
+      const updateCountdown = () => {
+        if (countdown > 0) {
+          nextCapture.textContent = `Snapshot will be taken in ${countdown}s...`;
+          countdown--;
+          nextCaptureTimerId = setTimeout(updateCountdown, 1000);
+        } else {
+          runCapture();
+        }
       };
-      update();
+      updateCountdown();
     }
 
     function captureFrame() {
@@ -933,6 +1066,13 @@
     }
 
     async function runCapture() {
+      if (!intervalId) return;
+
+      // Trigger Flash Effect
+      flashOverlay.classList.remove("flash-active");
+      void flashOverlay.offsetWidth; // Trigger reflow
+      flashOverlay.classList.add("flash-active");
+
       const dataUrl = captureFrame();
       if (!dataUrl) {
         setDetectionResult("No frame", true);
@@ -941,7 +1081,9 @@
       }
 
       setDetectionResult(null);
-      nextCapture.textContent = "Analyzing…";
+      nextCapture.classList.add("capturing");
+      const spiritMessageEl = document.getElementById("spiritMessage");
+      if (spiritMessageEl) spiritMessageEl.textContent = "The spirit peers at your object…";
 
       try {
         const finalResult = await askDetectItems(dataUrl);
@@ -971,22 +1113,27 @@
 
       updateSpirit();
       pickNewRiddle();
-      runCapture();
-      intervalId = setInterval(runCapture, INTERVAL_MS);
+      intervalId = true;
+      // Clear any spirit message until the first capture; it will appear during captures
+      const spiritMessageElStart = document.getElementById("spiritMessage");
+      if (spiritMessageElStart) spiritMessageElStart.textContent = "";
+      nextCapture.textContent = "Press Take Snapshot to evaluate your object";
+      btnSnapshot.disabled = false;
+      scheduleNextLabel();
       btnStart.disabled = true;
       btnStop.disabled = false;
     }
 
     function stopInterval() {
+      intervalId = null;
       if (nextCaptureTimerId) {
         clearTimeout(nextCaptureTimerId);
         nextCaptureTimerId = null;
       }
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
       nextCapture.textContent = "";
+      const spiritMessageElStop = document.getElementById("spiritMessage");
+      if (spiritMessageElStop) spiritMessageElStop.textContent = "";
+      btnSnapshot.disabled = true;
       currentRiddle = null;
       riddleCategory.style.display = "none";
       riddleCategory.textContent = "";
@@ -1020,8 +1167,10 @@
       }
     }
 
+    const btnSnapshot = document.getElementById("btnSnapshot");
     btnStart.addEventListener("click", startInterval);
     btnStop.addEventListener("click", stopInterval);
+    btnSnapshot.addEventListener("click", scheduleManualSnapshot);
 
     initCamera();
   </script>
