@@ -354,6 +354,24 @@
       background: #f9fafb;
     }
 
+    #debugContainer {
+      display: none;
+    }
+
+    #debugContainer.visible {
+      display: block;
+    }
+
+    #btnToggleDebug {
+      background: #d1d5db !important;
+      border-color: #9ca3af !important;
+      color: #6b7280 !important;
+    }
+
+    #btnToggleDebug:hover:not(:disabled) {
+      background: #b3b9c6 !important;
+    }
+
     canvas {
       display: none !important;
     }
@@ -627,8 +645,13 @@
           <span id="statusText">Starting camera…</span>
         </div>
 
-        <h2>Debug Dashboard</h2>
-        <div class="result-display pending" id="resultDisplay">
+        <div style="margin-bottom: 1rem;">
+          <button type="button" id="btnToggleDebug">Show Debug Dashboard</button>
+        </div>
+
+        <div id="debugContainer">
+          <h2>Debug Dashboard</h2>
+          <div class="result-display pending" id="resultDisplay">
           <div class="debug-grid" style="grid-template-columns: 1fr;">
             <div class="debug-group">
               <h3>Detected Objects</h3>
@@ -642,6 +665,8 @@
               <div class="item" id="headphonesResult">Headphones: —</div>
             </div>
           </div>
+        </div>
+        </div>
       </section>
     </div>
   </div>
@@ -1168,6 +1193,16 @@
     }
 
     const btnSnapshot = document.getElementById("btnSnapshot");
+    const btnToggleDebug = document.getElementById("btnToggleDebug");
+    const debugContainer = document.getElementById("debugContainer");
+
+    btnToggleDebug.addEventListener("click", () => {
+      debugContainer.classList.toggle("visible");
+      btnToggleDebug.textContent = debugContainer.classList.contains("visible")
+        ? "Hide Debug Dashboard"
+        : "Show Debug Dashboard";
+    });
+
     btnStart.addEventListener("click", startInterval);
     btnStop.addEventListener("click", stopInterval);
     btnSnapshot.addEventListener("click", scheduleManualSnapshot);
